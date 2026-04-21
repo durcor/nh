@@ -287,7 +287,7 @@ the cleanup process to let you know what is to be cleaned.
 ### Platform Specific Subcommands
 
 Platform specific subcommands are those that implement CLI utilities for
-**NixOS**, **Home Manager** and **Nix-Darwin**.
+**NixOS**, **Home Manager**, **Nix-Darwin** and **System Manager**.
 
 #### `nh os`
 
@@ -321,6 +321,24 @@ Last but not least, the `nh darwin` subcommand is a pure-rust reimplementation
 of the `darwin-rebuild` script featuring the same additions as `nh os` and
 `nh home`.
 
+#### `nh system`
+
+The `nh system` subcommand integrates with Numtide's
+`system-manager` project. It follows the same NH conventions for flake
+discovery, `nom` output, `dix` diffs, and confirmation prompts while targeting
+`systemConfigs` flake outputs.
+
+If no attribute is explicitly provided, `nh system` resolves flake outputs in
+the following order:
+
+1. `systemConfigs.<currentSystem>.<hostname>`
+2. `systemConfigs.<hostname>`
+3. `systemConfigs.<currentSystem>.default`
+4. `systemConfigs.default`
+
+When no installable is specified, `nh system` falls back to
+`~/.config/system-manager`.
+
 [^1]: `nh os` does not yet provide full feature parity with `nixos-rebuild`.
     While a large collection of subcommands have been implemented, you might be
     missing some features. Please visit
@@ -335,6 +353,7 @@ of the `darwin-rebuild` script featuring the same additions as `nh os` and
 | NixOS        | `nixos-rebuild switch --flake .#myHost`  | `nh os switch . -H myHost`     |
 | Darwin       | `darwin-rebuild switch --flake .#myHost` | `nh darwin switch . -H myHost` |
 | Home Manager | `home-manager switch --flake .#myHost`   | `nh home switch . -c myHome`   |
+| System Manager | `system-manager switch --flake . --sudo` | `nh system switch . -H myHost` |
 
 <!-- markdownlint-enable MD013 -->
 
@@ -342,11 +361,12 @@ If the `NH_FLAKE` variable is set, NH allows omitting the path to your flake.
 This is done automatically in the modules for NH in the NixOS and Home-Manager
 modules if `programs.nh.flake` is set.
 
-NH also allows omitting the hostname (`-H`) for NixOS/Darwin and the
-configuration (`-c`) parameters when it can be autodiscovered on the system. For
-example, if `NH_FLAKE` or `NH_OS_FLAKE` is set you may simply run `nh os switch`
-with no additional arguments, and it will automatically resolve
-`nixosConfigurations.<myHost>`.
+NH also allows omitting the hostname (`-H`) for NixOS/Darwin/System Manager and
+the configuration (`-c`) parameters when it can be autodiscovered on the
+system. For example, if `NH_FLAKE` or `NH_OS_FLAKE` is set you may simply run
+`nh os switch` with no additional arguments, and it will automatically resolve
+`nixosConfigurations.<myHost>`. Likewise, if `NH_SYSTEM_FLAKE` is set, `nh
+system switch` can automatically resolve a matching `systemConfigs` output.
 
 ## Environment variables
 
@@ -380,9 +400,10 @@ the common variables that you may encounter or choose to employ are as follows:
     migrate `FLAKE` into `NH_FLAKE` if present and the specific `NH_*_FLAKE`
     vars are not set.
 
-- `NH_OS_FLAKE`, `NH_HOME_FLAKE`, `NH_DARWIN_FLAKE`
-  - Command-specific flake references for `os`, `home`, and `darwin` commands
-    respectively. If present they take precedence over `NH_FLAKE`.
+- `NH_OS_FLAKE`, `NH_HOME_FLAKE`, `NH_DARWIN_FLAKE`, `NH_SYSTEM_FLAKE`
+  - Command-specific flake references for `os`, `home`, `darwin`, and
+    `system` commands respectively. If present they take precedence over
+    `NH_FLAKE`.
 
 - `NH_SUDO_ASKPASS`
   - Path to a program used as `SUDO_ASKPASS` when NH self-elevates with `sudo`.

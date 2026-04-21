@@ -66,6 +66,7 @@ pub enum NHCommand {
   Os(nh_nixos::args::OsArgs),
   Home(nh_home::args::HomeArgs),
   Darwin(nh_darwin::args::DarwinArgs),
+  System(nh_system::args::SystemArgs),
   Search(nh_search::args::SearchArgs),
   Clean(nh_clean::args::CleanProxy),
 }
@@ -77,6 +78,7 @@ impl NHCommand {
       Self::Os(args) => args.get_feature_requirements(),
       Self::Home(args) => args.get_feature_requirements(),
       Self::Darwin(args) => args.get_feature_requirements(),
+      Self::System(args) => args.get_feature_requirements(),
       Self::Search(..) | Self::Clean(..) => Box::new(NoFeatures),
     }
   }
@@ -92,6 +94,7 @@ impl NHCommand {
       Self::Clean(proxy) => proxy.command.run(elevation),
       Self::Home(args) => args.run(),
       Self::Darwin(args) => args.run(elevation),
+      Self::System(args) => args.run(elevation),
     }
   }
 }
