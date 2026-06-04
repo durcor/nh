@@ -42,9 +42,9 @@ const AUTO_GCROOTS_DIR: &str = "/nix/var/nix/gcroots/auto";
 
 #[derive(Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
 struct Generation {
-  number:        u32,
+  number: u32,
   last_modified: SystemTime,
-  path:          PathBuf,
+  path: PathBuf,
 }
 
 type ToBeRemoved = bool;
@@ -57,6 +57,14 @@ struct GcRootTagged {
   src: PathBuf,
   dst: PathBuf,
   tbr: ToBeRemoved,
+}
+
+fn all_profile_roots() -> [PathBuf; 3] {
+  [
+    PathBuf::from("/nix/var/nix/profiles"),
+    PathBuf::from("/nix/var/nix/profiles/per-user"),
+    PathBuf::from("/nix/var/nix/profiles/system-manager-profiles"),
+  ]
 }
 
 /// Filter paths to only include existing directories, logging warnings for
@@ -105,12 +113,7 @@ impl args::CleanMode {
           nh_core::util::self_elevate(elevate);
         }
 
-        let paths_to_check = [
-          PathBuf::from("/nix/var/nix/profiles"),
-          PathBuf::from("/nix/var/nix/profiles/per-user"),
-        ];
-
-        profiles.extend(filter_existing_dirs(paths_to_check).flat_map(
+        profiles.extend(filter_existing_dirs(all_profile_roots()).flat_map(
           |path| {
             if path.ends_with("per-user") {
               path
@@ -611,11 +614,24 @@ fn remove_path_nofail(path: &Path) {
 #[allow(clippy::expect_used, clippy::unwrap_used)]
 mod tests {
   use super::*;
+  use std::{
+    env, fs,
+    os::unix::fs::symlink,
+    path::PathBuf,
+    time::{SystemTime, UNIX_EPOCH},
+  };
 
   #[test]
   fn store_direct_child_accepts_top_level_entry() {
     assert!(is_nix_store_direct_child(Path::new(
       "/nix/store/abc123zzz-foo-1.0"
+    )));
+  }
+
+  #[test]
+  fn test_all_profile_roots_include_system_manager_profiles() {
+    assert!(all_profile_roots().contains(&PathBuf::from(
+      "/nix/var/nix/profiles/system-manager-profiles",
     )));
   }
 
@@ -793,5 +809,31 @@ mod tests {
       link.metadata().is_ok(),
       "live symlink metadata should succeed"
     );
+  }
+
+  #[test]
+  fn test_profiles_in_dir_detects_system_manager_profile_symlink() {
+    let unique = SystemTime::now()
+      .duration_since(UNIX_EPOCH)
+      .expect("system clock before unix epoch")
+      .as_nanos();
+    let tempdir = env::temp_dir()
+      .join(format!("nh-clean-test-{}-{unique}", std::process::id()));
+    let profile_dir = tempdir.as_path();
+    let store_dir = tempdir.join("store");
+    fs::create_dir_all(profile_dir).expect("create profile dir");
+    fs::create_dir(&store_dir).expect("create store dir");
+
+    let generation_target = store_dir.join("system-manager-42-link");
+    fs::create_dir(&generation_target).expect("create generation target");
+
+    symlink(&generation_target, profile_dir.join("system-manager"))
+      .expect("create profile symlink");
+
+    let profiles = profiles_in_dir(profile_dir);
+
+    assert_eq!(profiles, vec![profile_dir.join("system-manager")]);
+
+    fs::remove_dir_all(&tempdir).expect("remove tempdir");
   }
 }
